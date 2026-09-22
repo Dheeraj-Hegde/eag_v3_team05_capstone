@@ -1,0 +1,23 @@
+id: T01
+title: shortage transfer
+expected: produce
+prompt: |
+  Pick any component whose current on-hand across all warehouses is below its
+  reorder level. Draft a Material Transfer (StockEntry of type "transfer") from
+  a warehouse that has surplus of that component to a warehouse that is short.
+  If no cross-warehouse coverage exists, record an escalation.draft for
+  MaterialRequest on the Ledger seat with the proposed quantity and rationale.
+  In your final answer, name the item, the source and destination warehouses,
+  and the StockEntry id.
+
+verifier:
+  fn: stock_entry_exists
+  spec:
+    filters:
+      type: transfer
+    allowed_states: [0, 1]
+
+notes: |
+  Positive-produce task. The verifier calls StockEntry.list and looks for at
+  least one Material Transfer (type="transfer") in Draft or Submitted state
+  created during the run window. This is the seat's shortage-response workflow.
