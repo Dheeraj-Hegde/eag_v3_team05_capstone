@@ -4,10 +4,10 @@ Capstone deliverables for Team 05 at Suryodaya Precision Works. Each is in its o
 
 | Deliverable | Directory | Status |
 |---|---|---|
-| Gap report vs Katana MRP | [`gap-report.md`](gap-report.md) + [`evidence/`](evidence/) | ✅ done |
+| Gap report vs Katana MRP | [`gap-report.md`](gap-report.md) | ✅ done |
 | Agent (runnable v0, Gemini via glc_v5) | [`agent/`](agent/) | ✅ v0 |
 | Harness (runner + verifiers + scorer + 3 seed tasks) | [`harness/`](harness/) | ✅ v0 |
-| Hand-written tests guide + empty tests file | [`tests/`](tests/) | ✅ ready for you to write |
+| Bug report (6 anomalies against AgentSwitch) | [`bug-report.md`](bug-report.md) | ✅ done |
 
 ## First run
 
@@ -31,10 +31,6 @@ uv run harness run tasks\T01_shortage_transfer.yaml
 uv run harness run tasks\T02_refusal_payroll.yaml
 uv run harness run tasks\T03_item_hygiene.yaml
 uv run harness score
-
-# 3. Tests — write your own by hand in tests\tests.yaml
-cd ..\tests
-Get-Content HOW-TO-WRITE-TESTS.md
 ```
 
 ## Grading map (brief §8)
@@ -45,7 +41,6 @@ Get-Content HOW-TO-WRITE-TESTS.md
 | The agent | [`agent/`](agent/) |
 | The harness | [`harness/`](harness/) |
 | At least one refusal task | [`harness/tasks/T02_refusal_payroll.yaml`](harness/tasks/T02_refusal_payroll.yaml) |
-| Hand-written tests (10 pts each; 0 pts if AI-written; 100 pts per real bug) | [`tests/tests.yaml`](tests/tests.yaml) — **you fill by hand** |
 | Every run written to disk before scoring | [`harness/runs/<task>/<run_id>/result.json`](harness/) — enforced in `runner.py` |
 
 ## Policy summary (Seat 05)
@@ -57,7 +52,7 @@ Get-Content HOW-TO-WRITE-TESTS.md
 
 ## Gap report — what's in it
 
-[`gap-report.md`](gap-report.md) benchmarks Seat 05 against Katana MRP (`katanamrp.com`, from $299/mo Core, AI-native, publishes its own MCP). Every claim is backed by dumps in [`evidence/`](evidence/): [`tools-list.json`](evidence/tools-list.json) (211 tools scoped to this seat), [`schemas.json`](evidence/schemas.json), [`auth-me.json`](evidence/auth-me.json), and a 0-byte [`accounting-locale.json`](evidence/accounting-locale.json) recording a 403 on `GET /api/accounting/locale` — proof the accounting wall is real, not assumed.
+[`gap-report.md`](gap-report.md) benchmarks Seat 05 against Katana MRP (`katanamrp.com`, from $299/mo Core, AI-native, publishes its own MCP). Every claim is backed by MCP-side captures taken on 2026-09-21: `tools-list.json` (211 tools scoped to this seat), `schemas.json`, `auth-me.json` (`allowed_apps: [inventory, agent, crm]`), and a 0-byte `accounting-locale.json` recording a 403 on `GET /api/accounting/locale` — proof the accounting wall is real, not assumed.
 
 Three findings drive Week 1 scope:
 

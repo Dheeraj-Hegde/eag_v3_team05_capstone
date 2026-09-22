@@ -3,7 +3,7 @@
 **Team 05 · Suryodaya Precision Works (India, Ind AS / GST) · 2026-09-21**
 **Comparator:** Katana MRP (`katanamrp.com`) — cloud inventory + light manufacturing, AI-native, publishes an MCP server, from $299/mo Core.
 
-Every claim is backed by dumps in [`evidence/`](evidence/): `tools-list.json` (211 tools scoped to this seat), `schemas.json`, `auth-me.json` (`allowed_apps`: `inventory`, `agent`, `crm`), plus the 0-byte `accounting-locale.json` recording a 403 on `GET /api/accounting/locale`.
+Every claim is backed by MCP-side captures taken on 2026-09-21: `tools-list.json` (211 tools scoped to this seat), `schemas.json`, `auth-me.json` (`allowed_apps`: `inventory`, `agent`, `crm`), plus the 0-byte `accounting-locale.json` recording a 403 on `GET /api/accounting/locale`.
 
 ---
 
@@ -47,4 +47,4 @@ Katana's UI makes a stock controller faster; a human still drives every step. On
 
 ---
 
-*Katana feature claims cited to `katanamrp.com/features/` and `katanamrp.com/pricing/` (accessed 2026-09-21). AgentSwitch claims verified against `evidence/tools-list.json` (211 tools) and `evidence/schemas.json` on 2026-09-21.*
+*Katana feature claims cited to `katanamrp.com/features/` and `katanamrp.com/pricing/` (accessed 2026-09-21). AgentSwitch claims verified against `tools-list.json` (211 tools) and `schemas.json` captured on 2026-09-21.*

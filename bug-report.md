@@ -24,7 +24,7 @@ Common thread across bugs 2–6: **write validations are enforced on `create` bu
 **Status:** ✅ filed via `POST /api/bug-report`.
 **Severity:** High. Cancelled documents are the terminal state of `StockEntryFlow`; downstream reports, audit trails, and stock ledger reconciliation all key off the promise that a cancelled row is immutable.
 
-**Probe:** [`P04 illegal_transitions`](probes/src/probes/p04_illegal_transitions.py).
+**Probe:** `P04 illegal_transitions`.
 **Evidence:** [`probes/findings/P04/P04-20260922T180525Z-869d27/evidence.json`](probes/findings/P04/P04-20260922T180525Z-869d27/evidence.json).
 
 **Reproduce:**
@@ -46,7 +46,7 @@ Common thread across bugs 2–6: **write validations are enforced on `create` bu
 **Status:** to file.
 **Severity:** High. `type` selects the flavour of a `StockEntry` (`receive` / `issue` / `transfer`) and drives which warehouses are read/written, which validations fire, and which downstream ledgers the entry posts to. Retroactively flipping it invalidates every row of `items[]` (a `receive` needs `to_warehouse_id`; an `issue` needs `from_warehouse_id`) and every reconciliation that has already read the row.
 
-**Probe:** [`P13 update_immutable_fields`](probes/src/probes/p13_update_immutable_fields.py).
+**Probe:** `P13 update_immutable_fields`.
 **Evidence:** [`probes/findings/P13/P13-20260922T200957Z-447e4d/evidence.json`](probes/findings/P13/P13-20260922T200957Z-447e4d/evidence.json).
 
 **Reproduce:**
@@ -68,7 +68,7 @@ Common thread across bugs 2–6: **write validations are enforced on `create` bu
 **Status:** to file.
 **Severity:** High. `Item.type` distinguishes `product` vs `service`. Every `StockEntry`, `SalesOrder`, and `PurchaseReceipt` referencing the item was created under the assumption the item is stockable (or not). Flipping `product`→`service` on a row that already has stock movements poisons historical data and any subsequent valuation report.
 
-**Probe:** [`P18 item_update_immutable`](probes/src/probes/p18_item_update_immutable.py).
+**Probe:** `P18 item_update_immutable`.
 **Evidence:** [`probes/findings/P18/P18-20260922T201235Z-9a04b0/evidence.json`](probes/findings/P18/P18-20260922T201235Z-9a04b0/evidence.json).
 
 **Reproduce:**
@@ -88,7 +88,7 @@ Common thread across bugs 2–6: **write validations are enforced on `create` bu
 **Status:** to file.
 **Severity:** High. Unit of measure is the denominator of every quantity ever recorded against the item. A row created at `uom="pcs"` with `qty=100` means one hundred pieces; silently rewriting `uom` to `"kg"` retroactively re-labels that row as one hundred kilograms without touching any historical `qty`. There is no conversion audit.
 
-**Probe:** [`P18 item_update_immutable`](probes/src/probes/p18_item_update_immutable.py).
+**Probe:** `P18 item_update_immutable`.
 **Evidence:** [`probes/findings/P18/P18-20260922T201235Z-9a04b0/evidence.json`](probes/findings/P18/P18-20260922T201235Z-9a04b0/evidence.json).
 
 **Reproduce:**
@@ -105,7 +105,7 @@ Common thread across bugs 2–6: **write validations are enforced on `create` bu
 **Status:** to file.
 **Severity:** Medium. `Item.code` is the human-readable SKU, referenced in printed labels, external supplier catalogues, and barcodes. Overwriting it silently detaches every physical label and every external system's reference from the row.
 
-**Probe:** [`P18 item_update_immutable`](probes/src/probes/p18_item_update_immutable.py).
+**Probe:** `P18 item_update_immutable`.
 **Evidence:** [`probes/findings/P18/P18-20260922T201235Z-9a04b0/evidence.json`](probes/findings/P18/P18-20260922T201235Z-9a04b0/evidence.json).
 
 **Reproduce:**
@@ -122,7 +122,7 @@ Common thread across bugs 2–6: **write validations are enforced on `create` bu
 **Status:** to file.
 **Severity:** Medium. Any inbound valuation of zero flows into the stock ledger as a free receipt, distorting weighted-average cost. The business rule *"rate must be > 0 for receive entries"* is enforced on `create` — verified in every P03/P08 attempt — but not on `update`, so a Draft can be walked around the rule by creating with `rate=1.0` and then patching to `0.0` before submit.
 
-**Probe:** [`P19 update_bypass_business_rules`](probes/src/probes/p19_update_bypass_business_rules.py).
+**Probe:** `P19 update_bypass_business_rules`.
 **Evidence:** [`probes/findings/P19/P19-20260922T201245Z-06ce41/evidence.json`](probes/findings/P19/P19-20260922T201245Z-06ce41/evidence.json).
 
 **Reproduce:**
