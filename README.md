@@ -1,13 +1,6 @@
 # Route A · Week 1 — Stock (Seat 05)
 
-Capstone deliverables for Team 05 at Suryodaya Precision Works. Each is in its own directory.
-
-| Deliverable | Directory | Status |
-|---|---|---|
-| Gap report vs Katana MRP | [`gap-report.md`](gap-report.md) | ✅ done |
-| Agent (runnable v0, Gemini via glc_v5) | [`agent/`](agent/) | ✅ v0 |
-| Harness (runner + verifiers + scorer + 3 seed tasks) | [`harness/`](harness/) | ✅ v0 |
-| Bug report (6 anomalies against AgentSwitch) | [`bug-report.md`](bug-report.md) | ✅ done |
+Stock agent for Team 05 at Suryodaya Precision Works.
 
 ## First run
 
@@ -32,16 +25,6 @@ uv run harness run tasks\T02_refusal_payroll.yaml
 uv run harness run tasks\T03_item_hygiene.yaml
 uv run harness score
 ```
-
-## Grading map (brief §8)
-
-| Grading item | Where it lives |
-|---|---|
-| Gap report | [`gap-report.md`](gap-report.md) |
-| The agent | [`agent/`](agent/) |
-| The harness | [`harness/`](harness/) |
-| At least one refusal task | [`harness/tasks/T02_refusal_payroll.yaml`](harness/tasks/T02_refusal_payroll.yaml) |
-| Every run written to disk before scoring | [`harness/runs/<task>/<run_id>/result.json`](harness/) — enforced in `runner.py` |
 
 ## Policy summary (Seat 05)
 
