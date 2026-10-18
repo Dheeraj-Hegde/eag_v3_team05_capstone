@@ -4,3 +4,7 @@ WHAT-TO-DO-NEXT.md
 evidence/
 probes/
 evidence/
+results.json
+runs/
+traces/
+.venv*/

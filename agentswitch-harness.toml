@@ -1,0 +1,9 @@
+# AgentSwitch harness run config (Release 8.1).
+# The server checks out the saved branch, runs `install` (internet allowed),
+# then runs `run` once per instance against a fresh copy (no internet), and
+# reads `results`. Python 3.11. One run per team every 3 days.
+install = "pip install -r requirements.txt"
+run = "python -m harness"
+results = "results.json"
+instances = ["suryodaya", "keystone"]
+timeout_minutes = 20

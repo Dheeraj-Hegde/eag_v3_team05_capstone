@@ -1,0 +1,3 @@
+# Installs both local packages; ./agent satisfies harness's stock-agent dependency.
+-e ./agent
+-e ./harness

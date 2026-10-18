@@ -1,0 +1,23 @@
+id: T05
+title: warehouse list matches live data
+expected: produce
+prompt: |
+  List every warehouse we have, using each warehouse's exact name as recorded
+  in the system. Do not abbreviate, translate or omit any of them.
+
+verifier:
+  fn: all_of
+  spec:
+    checks:
+      - fn: answer_matches_ground_truth
+        spec:
+          tool: Warehouse.list
+          args: {limit: 200}
+          field: name
+          min_fraction: 1.0
+      - fn: no_writes_performed
+
+notes: |
+  Read accuracy. The verifier lists warehouses itself via MCP at verify time and
+  requires every name to appear in the final answer. Works on any instance
+  because ground truth is read live, not hardcoded.

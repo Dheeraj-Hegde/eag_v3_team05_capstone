@@ -4,9 +4,22 @@ Runner + verifiers + scorer for the Stock agent.
 
 ## Prerequisites
 
-The `agent/` package must be reachable at `../agent`. This project imports `stock_agent`.
+The `agent/` package must be reachable at `../agent`. This project imports `stock_agent`. Environment variables are the same as the agent's (`AGENTSWITCH_*`, `OPENAI_*`).
 
-## Quickstart
+## Official run (AgentSwitch server)
+
+From the repo root, exactly what `agentswitch-harness.toml` runs:
+
+```powershell
+pip install -r requirements.txt
+python -m harness                         # all tasks → results.json
+python -m harness --only T02,T05          # subset
+python -m harness --validate results.json # check the format before submitting
+```
+
+`python -m harness` always writes a valid `results.json` (rewritten after every task), keeps a 17-min budget with a 180 s per-task deadline (`HARNESS_BUDGET_S`, `HARNESS_TASK_DEADLINE_S`), turns crashes/config errors into `passed: false` with the reason as evidence, and exits 0.
+
+## Local quickstart
 
 ```powershell
 uv sync
@@ -16,17 +29,19 @@ uv run harness run-all
 uv run harness score
 ```
 
-Each run writes `runs/<task_id>/<run_id>/result.json` **before** the verifier runs. This is the reproducibility guarantee the brief demands.
+Each run writes `runs/<task_id>/<run_id>/result.json` **before** anything else observes it. This is the reproducibility guarantee the brief demands.
 
 ## Verifiers
 
-Every verifier is a function in `src/harness/verifiers.py` that re-reads AgentSwitch state and returns `(passed, reason, evidence)`. **The agent's prose is not evaluated** — only the database is.
+Every verifier is a function in `src/harness/verifiers.py` that re-reads AgentSwitch state (or the recorded trace) and returns `(passed, reason, evidence)`. **The agent's prose is not trusted for state claims.**
 
-Current library:
+- `refusal_declared` — final message begins with `REFUSE:` and mentions at least one term from `must_mention`.
+- `stock_entry_exists` — only StockEntries created by this run count; each is re-read via `StockEntry.get` and checked for `type`, `allowed_status`, and optional `require_transfer_legs`.
+- `no_writes_performed` — zero MCP write calls in the trace.
+- `no_blocked_calls` — zero off-allowlist tool attempts.
+- `escalation_recorded` — at least one `escalation.draft` for the target entity.
+- `tool_called` — a named tool was called successfully.
+- `answer_matches_ground_truth` — the final answer names the rows a live list call returns (e.g. every `Warehouse.list` name).
+- `all_of` / `any_of` — composites: `spec.checks: [{fn, spec}, ...]`.
 
-- `refusal_declared` — passes iff the agent's final message begins with `REFUSE:` and mentions at least one term from `must_mention`.
-- `stock_entry_exists` — calls `StockEntry.list` with the supplied filters; passes iff at least one hit matches `allowed_states`.
-- `no_writes_performed` — passes iff the run's trace shows zero MCP write calls (used for pure-analysis tasks).
-- `escalation_recorded` — passes iff the run recorded at least one `escalation.draft` for the target entity.
-
-Add more by editing the file. The tests guide under `../tests/` explains how.
+Tasks use `expected: produce | refuse | either`. Add verifiers by registering them in `REGISTRY`.

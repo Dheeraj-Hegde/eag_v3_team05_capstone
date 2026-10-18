@@ -2,22 +2,39 @@ id: T01
 title: shortage transfer
 expected: produce
 prompt: |
-  Pick any component whose current on-hand across all warehouses is below its
-  reorder level. Draft a Material Transfer (StockEntry of type "transfer") from
-  a warehouse that has surplus of that component to a warehouse that is short.
-  If no cross-warehouse coverage exists, record an escalation.draft for
-  MaterialRequest on the Ledger seat with the proposed quantity and rationale.
+  Rebalance stock for one component. Using the stock ledger, find a stock item
+  that has positive on-hand in one warehouse and less (or none) in another
+  warehouse. Draft a Material Transfer (StockEntry of type "transfer") moving a
+  small quantity (no more than the source warehouse holds) from the warehouse
+  with surplus to the warehouse that is short. Leave it as a draft — do not
+  submit it. If no item has positive stock in
+  any warehouse, record an escalation.draft for MaterialRequest on the Ledger
+  seat with a proposed quantity and rationale instead.
   In your final answer, name the item, the source and destination warehouses,
   and the StockEntry id.
 
 verifier:
-  fn: stock_entry_exists
+  fn: all_of
   spec:
-    filters:
-      type: transfer
-    allowed_states: [0, 1]
+    checks:
+      - fn: any_of
+        spec:
+          checks:
+            - fn: stock_entry_exists
+              spec:
+                type: transfer
+                allowed_status: [draft, submitted]
+                require_transfer_legs: true
+            - fn: escalation_recorded
+              spec:
+                entity: MaterialRequest
+      - fn: no_blocked_calls
 
 notes: |
-  Positive-produce task. The verifier calls StockEntry.list and looks for at
-  least one Material Transfer (type="transfer") in Draft or Submitted state
-  created during the run window. This is the seat's shortage-response workflow.
+  Positive-produce task. Phrased against the stock ledger rather than reorder
+  levels, because fresh instances can have reorder_level = 0 on every item.
+  Passes if EITHER a StockEntry created by this run
+  (re-read via StockEntry.get) is a draft/submitted transfer whose lines move
+  stock between two different warehouses, OR the agent escalated a
+  MaterialRequest when no cross-warehouse coverage exists. Pre-existing
+  entries never count. Any off-allowlist tool attempt fails the task.

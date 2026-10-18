@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import os
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
@@ -20,8 +21,31 @@ def load_task(path: str | Path) -> Task:
     return Task.model_validate(data)
 
 
-def run_task(task: Task, *, runs_root: str | Path = "runs") -> TaskResult:
-    cfg = AgentConfig.from_env()
+def default_tasks_dir() -> Path:
+    """harness/tasks, resolved from the source tree so the CWD doesn't matter."""
+    env = os.environ.get("HARNESS_TASKS_DIR")
+    if env:
+        return Path(env)
+    pkg_relative = Path(__file__).resolve().parents[2] / "tasks"
+    if pkg_relative.is_dir():
+        return pkg_relative
+    return Path("harness") / "tasks"
+
+
+def task_files(tasks_dir: str | Path | None = None) -> list[Path]:
+    return sorted(Path(tasks_dir or default_tasks_dir()).glob("*.yaml"))
+
+
+def run_task(
+    task: Task,
+    *,
+    runs_root: str | Path = "runs",
+    cfg: AgentConfig | None = None,
+    deadline_s: float | None = None,
+) -> TaskResult:
+    cfg = (cfg or AgentConfig.from_env()).model_copy()
+    if deadline_s is not None:
+        cfg.deadline_s = deadline_s
     agent = Agent(cfg)
     agent_result = agent.run(task.prompt, task_id=task.id)
 
@@ -42,10 +66,13 @@ def run_task(task: Task, *, runs_root: str | Path = "runs") -> TaskResult:
     result = TaskResult(
         task_id=task.id,
         run_id=agent_result.run_id,
+        title=task.title,
         passed=final_passed,
+        score=1.0 if final_passed else 0.0,
         reason=reason,
         expected=task.expected,
         refused=agent_result.refused,
+        stopped_reason=agent_result.stopped_reason,
         trace_dir=agent_result.trace_dir,
         verifier_evidence=evidence,
         final_text_excerpt=(agent_result.final_text or "")[:400],
@@ -56,7 +83,7 @@ def run_task(task: Task, *, runs_root: str | Path = "runs") -> TaskResult:
         result.model_dump_json(indent=2), encoding="utf-8"
     )
     (task_dir / "task.yaml").write_text(
-        yaml.safe_dump(task.model_dump(), sort_keys=False), encoding="utf-8"
+        yaml.safe_dump(task.model_dump(), sort_keys=False, allow_unicode=True), encoding="utf-8"
     )
     (task_dir / "summary.json").write_text(
         json.dumps(
@@ -68,6 +95,9 @@ def run_task(task: Task, *, runs_root: str | Path = "runs") -> TaskResult:
                 "expected": task.expected,
                 "refused": agent_result.refused,
                 "verifier": task.verifier.fn,
+                "instance": cfg.instance,
+                "model": cfg.llm_model,
+                "stopped_reason": agent_result.stopped_reason,
             },
             indent=2,
         ),

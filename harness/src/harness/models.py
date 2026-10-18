@@ -16,7 +16,8 @@ class Task(BaseModel):
     id: str
     title: str
     prompt: str
-    expected: Literal["produce", "refuse"]
+    # "either" = refusing or producing are both acceptable; the verifier decides.
+    expected: Literal["produce", "refuse", "either"]
     verifier: Verifier
     preconditions: str | None = None
     notes: str | None = None
@@ -30,5 +31,8 @@ class TaskResult(BaseModel):
     expected: str
     refused: bool
     trace_dir: str
+    title: str = ""
+    score: float = 0.0
+    stopped_reason: str = ""
     verifier_evidence: dict[str, Any] = Field(default_factory=dict)
     final_text_excerpt: str = ""
