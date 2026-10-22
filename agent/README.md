@@ -15,15 +15,16 @@ Stock agent for Team 05 (Suryodaya Precision Works). Drives the AgentSwitch MCP 
 uv sync
 Copy-Item .env.example .env    # then fill AGENTSWITCH_TOKEN and OPENAI_*
 uv run stock-agent ping        # MCP handshake + one tiny model call
-uv run stock-agent list-tools  # 211 raw → 115 seat-allowed → 24 shown to the model
-uv run stock-agent run --prompt "List the top 5 items missing a reorder level."
+uv run stock-agent list-tools  # 211 raw → 115 seat-allowed → 17 shown to the model
+uv run stock-agent run --prompt "List the top 5 items missing a reorder level."   # --token-budget 40000 --max-steps 6
 ```
 
 Every run writes `traces/<run_id>/{trace.jsonl, meta.json}` before returning.
 
 ## Policy
 
-- **Reads:** open across the seat; the model sees only inventory entities (`LLM_ENTITIES` in `src/stock_agent/tools.py`: `Item`, `StockEntry`, `StockLedger`, `StockReservation`, `Warehouse`, `InventoryPreferences`, `Party`, `Company`).
+- **Reads:** open across the seat; the model sees only inventory entities (`LLM_ENTITIES` in `src/stock_agent/tools.py`: `Item`, `StockEntry`, `StockLedger`, `Warehouse`, `Party`, `Company`), with slimmed schemas and trimmed list rows to save tokens. `stock.balance` gives on-hand and free stock per item and warehouse in one call, built on the platform's read-only `endpoint.inventory.stock_balance`.
+- **Token budget:** each run is capped (`token_budget`, default 40k; `max_steps` 6). Near the cap the agent stops reading, still performs its write or escalation, and answers. Results over 6 kB are cut on whole rows, and the same tool can be called at most 3 times per run.
 - **Writes:** allowlisted to `StockEntry.{create,submit,cancel_draft,update}`, `Item.update`, `Warehouse.{create,update}`. Every other write must surface as a synthetic `escalation.draft` tool call — the runner records these; nothing hits MCP. Off-allowlist attempts are blocked and recorded as `blocked_calls`.
 - **Tool names:** OpenAI function names can't contain `.`, so `StockEntry.create` is exposed as `StockEntry__create` and mapped back before dispatch.
 - **Refusals:** when the agent cannot answer inside its seat, its final message starts with `REFUSE:` and names the boundary. Escalating is not refusing. Verifiers key on this.

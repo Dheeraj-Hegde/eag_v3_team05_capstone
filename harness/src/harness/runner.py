@@ -42,10 +42,13 @@ def run_task(
     runs_root: str | Path = "runs",
     cfg: AgentConfig | None = None,
     deadline_s: float | None = None,
+    token_budget: int | None = None,
 ) -> TaskResult:
     cfg = (cfg or AgentConfig.from_env()).model_copy()
     if deadline_s is not None:
         cfg.deadline_s = deadline_s
+    if token_budget is not None:
+        cfg.token_budget = token_budget
     agent = Agent(cfg)
     agent_result = agent.run(task.prompt, task_id=task.id)
 
@@ -73,6 +76,7 @@ def run_task(
         expected=task.expected,
         refused=agent_result.refused,
         stopped_reason=agent_result.stopped_reason,
+        tokens_used=agent_result.tokens_used,
         trace_dir=agent_result.trace_dir,
         verifier_evidence=evidence,
         final_text_excerpt=(agent_result.final_text or "")[:400],
@@ -98,6 +102,8 @@ def run_task(
                 "instance": cfg.instance,
                 "model": cfg.llm_model,
                 "stopped_reason": agent_result.stopped_reason,
+                "tokens_used": agent_result.tokens_used,
+                "token_budget": cfg.token_budget,
             },
             indent=2,
         ),

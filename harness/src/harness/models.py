@@ -34,5 +34,6 @@ class TaskResult(BaseModel):
     title: str = ""
     score: float = 0.0
     stopped_reason: str = ""
+    tokens_used: int = 0
     verifier_evidence: dict[str, Any] = Field(default_factory=dict)
     final_text_excerpt: str = ""

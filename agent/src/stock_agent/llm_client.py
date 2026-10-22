@@ -79,8 +79,9 @@ class LLMClient:
         messages: list[dict[str, Any]],
         *,
         tools: list[dict[str, Any]] | None = None,
+        tool_choice: str = "auto",
         temperature: float = 0.2,
-        max_tokens: int = 8192,
+        max_tokens: int = 4096,
         deadline: float | None = None,
         max_attempts: int = 8,
     ) -> dict[str, Any]:
@@ -90,7 +91,9 @@ class LLMClient:
         while True:
             attempt += 1
             try:
-                return self._chat_once(messages, tools=tools, temperature=temperature, max_tokens=max_tokens)
+                return self._chat_once(
+                    messages, tools=tools, tool_choice=tool_choice, temperature=temperature, max_tokens=max_tokens
+                )
             except _RETRYABLE as e:
                 delay = _retry_delay(e, attempt)
                 out_of_time = deadline is not None and time.monotonic() + delay > deadline
@@ -103,13 +106,14 @@ class LLMClient:
         messages: list[dict[str, Any]],
         *,
         tools: list[dict[str, Any]] | None,
+        tool_choice: str,
         temperature: float,
         max_tokens: int,
     ) -> dict[str, Any]:
         kwargs: dict[str, Any] = {"model": self._model, "messages": messages}
         if tools:
             kwargs["tools"] = tools
-            kwargs["tool_choice"] = "auto"
+            kwargs["tool_choice"] = tool_choice
         if self._send_sampling_params:
             kwargs["temperature"] = temperature
             kwargs["max_tokens"] = max_tokens
@@ -122,6 +126,10 @@ class LLMClient:
                 self._send_sampling_params = False
                 kwargs.pop("temperature", None)
                 kwargs.pop("max_tokens", None)
+                resp = self._client.chat.completions.create(**kwargs)
+            elif kwargs.get("tool_choice") not in (None, "auto") and "tool_choice" in msg:
+                # Provider rejects tool_choice="none"; the agent ignores tool calls on forced turns anyway.
+                kwargs["tool_choice"] = "auto"
                 resp = self._client.chat.completions.create(**kwargs)
             else:
                 raise

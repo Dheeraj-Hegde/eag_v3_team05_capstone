@@ -21,6 +21,10 @@ from harness.results import build_document, official_task, validate_file, write_
 DEFAULT_BUDGET_S = 17 * 60  # server timeout is 20 min; keep headroom for install/teardown
 DEFAULT_TASK_DEADLINE_S = 180
 MIN_TASK_WINDOW_S = 45
+# Platform model limit is 300k tokens; stay well below it across all tasks.
+DEFAULT_TOKEN_BUDGET = 200_000
+DEFAULT_TASK_TOKEN_BUDGET = 40_000
+MIN_TASK_TOKENS = 10_000
 
 
 def _validate(path: str) -> int:
@@ -46,6 +50,18 @@ def main(argv: list[str] | None = None) -> int:
         "--task-deadline-s",
         type=float,
         default=float(os.environ.get("HARNESS_TASK_DEADLINE_S", DEFAULT_TASK_DEADLINE_S)),
+    )
+    parser.add_argument(
+        "--token-budget",
+        type=int,
+        default=int(os.environ.get("HARNESS_TOKEN_BUDGET", DEFAULT_TOKEN_BUDGET)),
+        help="max model tokens (prompt+completion) for the whole run",
+    )
+    parser.add_argument(
+        "--task-token-budget",
+        type=int,
+        default=int(os.environ.get("HARNESS_TASK_TOKEN_BUDGET", DEFAULT_TASK_TOKEN_BUDGET)),
+        help="max model tokens for a single task",
     )
     args = parser.parse_args(argv)
 
@@ -106,32 +122,56 @@ def main(argv: list[str] | None = None) -> int:
         flush("config error")
         return 0
 
-    print(f"[harness] instance={cfg.instance or '-'} model={cfg.llm_model} tasks={len(tasks)} budget={args.budget_s:.0f}s")
-    for t in tasks:
+    print(
+        f"[harness] instance={cfg.instance or '-'} model={cfg.llm_model} tasks={len(tasks)} "
+        f"budget={args.budget_s:.0f}s tokens={args.token_budget}"
+    )
+    tokens_spent = 0
+    for i, t in enumerate(tasks):
         remaining = args.budget_s - (time.monotonic() - started)
         if remaining < MIN_TASK_WINDOW_S:
             rows[t.id] = official_task(t.id, t.title, False, f"skipped: time budget exhausted ({remaining:.0f}s left)")
             print(f"[{t.id}] skipped - time budget exhausted")
             continue
+        # Reserve a minimum for each later task so one heavy task can't starve the rest.
+        tasks_after = len(tasks) - i - 1
+        task_tokens = min(
+            args.task_token_budget,
+            args.token_budget - tokens_spent - MIN_TASK_TOKENS * tasks_after,
+        )
+        if task_tokens < MIN_TASK_TOKENS:
+            rows[t.id] = official_task(
+                t.id, t.title, False, f"skipped: token budget exhausted ({args.token_budget - tokens_spent} left)"
+            )
+            print(f"[{t.id}] skipped - token budget exhausted")
+            continue
         deadline = min(args.task_deadline_s, remaining - 30)
         t0 = time.monotonic()
-        print(f"[{t.id}] {t.title} (expected={t.expected}, deadline={deadline:.0f}s)", flush=True)
+        print(f"[{t.id}] {t.title} (expected={t.expected}, deadline={deadline:.0f}s, tokens<={task_tokens})", flush=True)
         try:
-            r = run_task(t, runs_root=args.runs_root, cfg=cfg, deadline_s=deadline)
+            r = run_task(t, runs_root=args.runs_root, cfg=cfg, deadline_s=deadline, token_budget=task_tokens)
+            tokens_spent += r.tokens_used
             evidence = r.reason
             if r.stopped_reason and r.stopped_reason not in ("stop", "end_turn"):
                 evidence = f"[{r.stopped_reason}] {evidence}"
             rows[t.id] = official_task(t.id, t.title, r.passed, evidence, r.score)
-            print(f"[{t.id}] passed={r.passed} ({time.monotonic() - t0:.0f}s) {r.reason[:200]}", flush=True)
+            print(
+                f"[{t.id}] passed={r.passed} ({time.monotonic() - t0:.0f}s, {r.tokens_used} tokens) {r.reason[:200]}",
+                flush=True,
+            )
         except Exception as e:
+            tokens_spent += int(getattr(e, "tokens_used", 0) or 0)
             traceback.print_exc()
             rows[t.id] = official_task(t.id, t.title, False, f"crashed: {type(e).__name__}: {e}")
             print(f"[{t.id}] crashed: {type(e).__name__}: {e}", flush=True)
-        flush("in progress")
+        flush(f"in progress | tokens={tokens_spent}")
 
-    flush()
+    flush(f"tokens={tokens_spent}")
     passed = sum(1 for r in rows.values() if r["passed"])
-    print(f"[harness] {passed}/{len(rows)} passed in {time.monotonic() - started:.0f}s -> {results_path}")
+    print(
+        f"[harness] {passed}/{len(rows)} passed in {time.monotonic() - started:.0f}s, "
+        f"{tokens_spent} tokens -> {results_path}"
+    )
     # Exit 0 regardless: the panel scores from results.json, not the exit code.
     return 0
 

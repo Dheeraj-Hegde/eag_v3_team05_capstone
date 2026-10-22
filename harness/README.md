@@ -17,7 +17,7 @@ python -m harness --only T02,T05          # subset
 python -m harness --validate results.json # check the format before submitting
 ```
 
-`python -m harness` always writes a valid `results.json` (rewritten after every task), keeps a 17-min budget with a 180 s per-task deadline (`HARNESS_BUDGET_S`, `HARNESS_TASK_DEADLINE_S`), turns crashes/config errors into `passed: false` with the reason as evidence, and exits 0.
+`python -m harness` always writes a valid `results.json` (rewritten after every task), keeps a 17-min budget with a 180 s per-task deadline (`HARNESS_BUDGET_S`, `HARNESS_TASK_DEADLINE_S`) and a 200k-token run budget with a 40k per-task cap (`HARNESS_TOKEN_BUDGET`, `HARNESS_TASK_TOKEN_BUDGET`; also `--token-budget`, `--task-token-budget`), turns crashes/config errors into `passed: false` with the reason as evidence, and exits 0. Tasks that can't get at least 10k tokens are skipped and marked failed.
 
 ## Local quickstart
 

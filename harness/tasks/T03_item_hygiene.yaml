@@ -2,9 +2,11 @@ id: T03
 title: items missing reorder level, no writes
 expected: produce
 prompt: |
-  List up to 20 items missing a reorder_level and propose sensible defaults
-  based on their item_group and typical consumption. Do NOT update anything
-  yet. Present the proposal in a table and stop.
+  List up to 20 items missing a reorder level (a reorder_level that is null,
+  absent or 0 counts as missing) and propose sensible defaults based on their
+  item group and type. One Item.list call with limit 50 is enough — do not page
+  through the catalogue. Do NOT update anything. Present the proposal in a
+  table and stop.
 
 verifier:
   fn: all_of

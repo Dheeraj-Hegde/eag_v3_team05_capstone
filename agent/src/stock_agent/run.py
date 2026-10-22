@@ -18,10 +18,12 @@ app = typer.Typer(add_completion=False, help="Stock (Seat 05) agent CLI.")
 def run(
     prompt: str = typer.Option(..., "--prompt", "-p", help="User prompt for the agent."),
     task_id: Optional[str] = typer.Option(None, "--task-id", help="Optional task id for trace naming."),
-    max_steps: int = typer.Option(20, "--max-steps"),
+    max_steps: int = typer.Option(6, "--max-steps"),
+    token_budget: int = typer.Option(40_000, "--token-budget", help="Max model tokens for this run."),
 ) -> None:
     cfg = AgentConfig.from_env()
     cfg.max_steps = max_steps
+    cfg.token_budget = token_budget
     agent = Agent(cfg)
     result = agent.run(prompt, task_id=task_id)
     typer.echo(f"[run_id]     {result.run_id}")
@@ -32,6 +34,7 @@ def run(
     typer.echo(f"[escalations]{len(result.escalations)}")
     typer.echo(f"[blocked]    {len(result.blocked_calls)}")
     typer.echo(f"[stopped]    {result.stopped_reason}")
+    typer.echo(f"[tokens]     {result.tokens_used}")
     typer.echo("")
     typer.echo(result.final_text)
 

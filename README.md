@@ -46,6 +46,8 @@ uv run harness score
 | `instances` | `["suryodaya", "keystone"]` | One separate run per instance. Tasks are data-agnostic; verifiers read ground truth live. |
 | `timeout_minutes` | `20` | The harness self-limits to a 17-min budget (180 s per task) and marks unrun tasks failed instead of being killed. |
 
+**Token budget.** The platform model allows 300k tokens. The harness caps the whole run at **200k** (`HARNESS_TOKEN_BUDGET`) and each task at **40k** (`HARNESS_TASK_TOKEN_BUDGET`), reserving at least 10k for every task still to run. Latest rehearsals with the official settings: **keystone 75k, suryodaya 82k**, both 6/6 (previously ~1.3M). Typical per task: refusals ~3.6k, warehouse list ~8k, item hygiene ~10k, PO escalation ~17–19k, shortage transfer ~21–36k. Total tokens used appear in the `results.json` summary and per task in `runs/<task>/<run>/summary.json`.
+
 On the server there is **no `.env`, no own keys**: the agent reads only the injected `AGENTSWITCH_*` and `OPENAI_*` variables. Gemini/Anthropic SDKs won't work there — the agent uses the `openai` package.
 
 `results.json` format (validated before every write, rewritten after every task so a timeout still leaves a valid file):
@@ -88,7 +90,7 @@ Locally your writes are **not** thrown away — T01 creates a real draft `StockE
 
 ## Policy summary (Seat 05)
 
-- `allowed_apps`: `inventory`, `agent`, `crm`. 211 MCP tools scoped to this seat; 115 pass the seat filter; **23 inventory tools + `escalation.draft`** are exposed to the model.
+- `allowed_apps`: `inventory`, `agent`, `crm`. 211 MCP tools scoped to this seat; 115 pass the seat filter; **15 inventory tools + `stock.balance` + `escalation.draft`** are exposed to the model.
 - Writes the agent may perform: `Item.update`, `StockEntry.{create,update,submit,cancel_draft}`, `Warehouse.{create,update}`.
 - All other write operations surface as `escalation.draft` calls — recorded, not executed.
 - Refusals begin with `REFUSE:` on the first line; verifiers read this. Escalating is not refusing.
@@ -121,8 +123,12 @@ A policy-constrained tool-calling loop that drives AgentSwitch MCP via any OpenA
 
 **How a run flows:**
 
-1. `initialize` MCP, pull `tools/list` (~211 tools), filter through `mcp_tools_to_llm`: seat policy (115), then the inventory trim (`LLM_ENTITIES` → 23 tools) + `escalation.draft`. MCP names are exposed as OpenAI function names with `.` → `__` (`StockEntry.create` ↔ `StockEntry__create`) and mapped back before dispatch.
-2. Loop up to `max_steps=20` and a wall-clock deadline (default 300 s; the official harness passes 180 s): send system prompt + messages + tools to the model; dispatch tool calls (MCP results with `isError: true` are returned as failures; results are trimmed to `structuredContent`, max 12 kB); iterate until the model returns no tool calls.
+1. `initialize` MCP, pull `tools/list` (~211 tools), filter through `mcp_tools_to_llm`: seat policy (115), then the inventory trim (`LLM_ENTITIES` minus `HIDDEN_LLM_TOOLS` → 15 tools) + `stock.balance` + `escalation.draft`. Schemas are slimmed for tokens: validation keywords (`default`, `format`, `min*`/`max*` …) are dropped, list tools keep only paging/sort/search and common filters, `Item.update` shows only stock fields, `StockEntry` hides `date` (a model-invented back-date made the server check availability in the past), descriptions are cut to 160 chars (~10 kB total, down from ~25 kB). MCP names are exposed as OpenAI function names with `.` → `__` (`StockEntry.create` ↔ `StockEntry__create`) and mapped back before dispatch.
+2. Loop up to `max_steps=6`, a wall-clock deadline (default 300 s; the official harness passes 180 s) and a **token budget** (default 40k per run): send system prompt + messages + tools to the model; dispatch tool calls (MCP results with `isError: true` are returned as failures); iterate until the model returns no tool calls.
+   - **Lean results:** `.list` rows keep only the fields in `LIST_RESULT_FIELDS` (an `Item` row drops from ~1.1 kB to ~180 B); empty, `_private` and audit fields are dropped; results over 6 kB are cut on whole rows with a "showing N of M" note.
+   - **`stock.balance`** ([`balance.py`](agent/src/stock_agent/balance.py)): a read-only tool built on the platform's `endpoint.inventory.stock_balance`. It returns on-hand and free stock per item and warehouse (or per item), plus every warehouse, in one model turn instead of 4–6 `StockLedger`/`Item`/`Warehouse` round-trips. Its MCP reads are recorded like any other read.
+   - **Budget:** before each call the agent projects its cost (every call re-sends the whole conversation). If a normal call would leave no room for a final one, it sends a "finish now" turn instead: reads are no longer executed, but the task's write or `escalation.draft` still is. If that turn produces no text, one tools-free call fetches the answer. That call may exceed the task's budget by up to 25%.
+   - **Repeat guard:** after 3 calls to the same tool, further calls are refused with a "use what you have" message (not counted as a blocked call).
 3. Every LLM request, tool call, MCP result, refusal, escalation, and blocked call is written to `traces/<run_id>/trace.jsonl` **before** the loop returns — this is the audit substrate the harness verifiers read.
 
 **Policy is enforced at the tool list, not by prompt trust:**
