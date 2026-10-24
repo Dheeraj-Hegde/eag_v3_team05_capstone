@@ -8,6 +8,8 @@ Each verifier returns (passed, reason, evidence). Composite verifiers
 from __future__ import annotations
 
 import json
+import re
+import unicodedata
 from typing import Any, Callable
 
 from stock_agent.agent import AgentResult, tool_result_payload
@@ -17,6 +19,17 @@ VerifierFn = Callable[
     [MCPClient, dict[str, Any], AgentResult],
     tuple[bool, str, dict[str, Any]],
 ]
+
+# Models often emit typographic dashes (U+2010-2015, U+2212) and non-breaking
+# spaces; treat them as the plain ASCII the platform stores.
+_DASHES = re.compile(r"[\u2010-\u2015\u2212\uFE58\uFE63\uFF0D]")
+_SPACES = re.compile(r"\s+")
+
+
+def _norm_text(value: Any) -> str:
+    s = unicodedata.normalize("NFKC", str(value or ""))
+    s = _DASHES.sub("-", s)
+    return _SPACES.sub(" ", s).strip().lower()
 
 
 def refusal_declared(
@@ -189,9 +202,9 @@ def answer_matches_ground_truth(
         return False, f"{tool} failed: {e}", {"tool": tool, "error": str(e)[:200]}
 
     expected = sorted({str(r.get(fld)).strip() for r in rows if isinstance(r, dict) and r.get(fld)})
-    text = (result.final_text or "").lower()
-    found = [v for v in expected if v.lower() in text]
-    missing = [v for v in expected if v.lower() not in text]
+    text = _norm_text(result.final_text)
+    found = [v for v in expected if _norm_text(v) in text]
+    missing = [v for v in expected if _norm_text(v) not in text]
     evidence = {
         "tool": tool,
         "field": fld,

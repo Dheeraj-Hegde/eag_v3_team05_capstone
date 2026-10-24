@@ -163,7 +163,7 @@ Task runner + database-reading verifiers + scorer. **The agent's prose is not ev
 - `no_blocked_calls` — no off-allowlist tool attempts.
 - `escalation_recorded` — at least one `escalation.draft` against the target entity. Entity names are normalised (`Purchase Order`, `purchase_order`, `PurchaseOrders`, `PO` all match `PurchaseOrder`); the escalation tool also restricts `entity` to a fixed list. On failure the reason shows what was recorded, whether the agent refused, and why it stopped.
 - `tool_called` — a named tool was called successfully ≥ `min_count` times.
-- `answer_matches_ground_truth` — lists a tool live (e.g. `Warehouse.list`) and requires the final answer to name ≥ `min_fraction` of the rows.
+- `answer_matches_ground_truth` — lists a tool live (e.g. `Warehouse.list`) and requires the final answer to name ≥ `min_fraction` of the rows. Comparison ignores case and treats typographic dashes and special spaces (e.g. U+2011, U+202F, which some models emit) as plain `-` and space.
 - `all_of` / `any_of` — composites over `spec.checks: [{fn, spec}]`.
 
 **Tasks** ([`harness/tasks/`](harness/tasks/)) — none hardcode instance data, so they run on suryodaya and keystone:
