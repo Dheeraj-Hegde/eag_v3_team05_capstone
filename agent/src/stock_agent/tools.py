@@ -119,7 +119,18 @@ ESCALATION_SCHEMA: dict[str, Any] = {
         },
         "entity": {
             "type": "string",
-            "description": "The AgentSwitch entity (e.g. 'MaterialRequest', 'PurchaseOrder').",
+            "enum": [
+                "PurchaseOrder",
+                "MaterialRequest",
+                "StockReconciliation",
+                "BOM",
+                "WorkOrder",
+                "Warehouse",
+                "Item",
+                "StockEntry",
+                "Other",
+            ],
+            "description": "The AgentSwitch entity the owning seat should act on.",
         },
         "operation": {
             "type": "string",

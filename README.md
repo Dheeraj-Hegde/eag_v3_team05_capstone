@@ -161,7 +161,7 @@ Task runner + database-reading verifiers + scorer. **The agent's prose is not ev
 - `stock_entry_exists` — only `StockEntry` ids returned by **this run's** successful `StockEntry.create` calls count; each is re-read via `StockEntry.get` and must match `type`, `allowed_status` (`draft`/`submitted`), and optionally `require_transfer_legs` (distinct from/to warehouses). Pre-existing entries never count.
 - `no_writes_performed` — no `.create/.update/.submit/.cancel_draft/.cancel/.delete` call in the trace.
 - `no_blocked_calls` — no off-allowlist tool attempts.
-- `escalation_recorded` — at least one `escalation.draft` against the target entity.
+- `escalation_recorded` — at least one `escalation.draft` against the target entity. Entity names are normalised (`Purchase Order`, `purchase_order`, `PurchaseOrders`, `PO` all match `PurchaseOrder`); the escalation tool also restricts `entity` to a fixed list. On failure the reason shows what was recorded, whether the agent refused, and why it stopped.
 - `tool_called` — a named tool was called successfully ≥ `min_count` times.
 - `answer_matches_ground_truth` — lists a tool live (e.g. `Warehouse.list`) and requires the final answer to name ≥ `min_fraction` of the rows.
 - `all_of` / `any_of` — composites over `spec.checks: [{fn, spec}]`.
