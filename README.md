@@ -46,7 +46,7 @@ uv run harness score
 | `instances` | `["suryodaya", "keystone"]` | One separate run per instance. Tasks are data-agnostic; verifiers read ground truth live. |
 | `timeout_minutes` | `20` | The harness self-limits to a 17-min budget (180 s per task) and marks unrun tasks failed instead of being killed. |
 
-**Token budget.** The platform model allows 300k tokens. The harness caps the whole run at **200k** (`HARNESS_TOKEN_BUDGET`) and each task at **40k** (`HARNESS_TASK_TOKEN_BUDGET`), reserving at least 10k for every task still to run. Latest rehearsals with the official settings: **keystone 75k, suryodaya 82k**, both 6/6 (previously ~1.3M). Typical per task: refusals ~3.6k, warehouse list ~8k, item hygiene ~10k, PO escalation ~17–19k, shortage transfer ~21–36k. Total tokens used appear in the `results.json` summary and per task in `runs/<task>/<run>/summary.json`.
+**Token budget.** The platform model allows 300k tokens. The harness caps the whole run at **200k** (`HARNESS_TOKEN_BUDGET`) and each task at **40k** (`HARNESS_TASK_TOKEN_BUDGET`), reserving at least 10k for every task still to run. Last official server run (model `deepseek-v4p1-flash`): **suryodaya 90k, keystone 73k** tokens (previously ~1.3M). Local rehearsals after the T04/T05 fixes: 6/6 on both instances with Gemini (69–71k) and with `gpt-oss-120b` (44–47k). Typical per task: refusals ~3–4k, warehouse list ~6–8k, item hygiene ~8–11k, PO escalation ~9–20k, shortage transfer ~14–36k. Total tokens used appear in the `results.json` summary and per task in `runs/<task>/<run>/summary.json`.
 
 On the server there is **no `.env`, no own keys**: the agent reads only the injected `AGENTSWITCH_*` and `OPENAI_*` variables. Gemini/Anthropic SDKs won't work there — the agent uses the `openai` package.
 
@@ -55,7 +55,7 @@ On the server there is **no `.env`, no own keys**: the agent reads only the inje
 ```json
 {"tasks": [{"id": "T01", "title": "shortage transfer", "passed": true, "score": 1.0,
             "evidence": "any_of: stock_entry_exists: StockEntry STE-… type=transfer status=draft verified; …"}],
- "summary": "Seat 05 Stock: 5/6 passed | instance=suryodaya | model=…"}
+ "summary": "Seat 05 Stock: 6/6 passed | instance=suryodaya | model=… | tokens=…"}
 ```
 
 `python -m harness` always exits 0 and always writes `results.json` — config errors, task crashes and skipped tasks become `passed: false` with the reason as evidence.
@@ -80,6 +80,8 @@ $env:AGENTSWITCH_INSTANCE = "suryodaya"
 $env:OPENAI_BASE_URL      = "https://generativelanguage.googleapis.com/v1beta/openai/"  # any OpenAI-compatible endpoint
 $env:OPENAI_API_KEY       = "<key>"
 $env:OPENAI_MODEL         = "gemini-3.5-flash-lite"
+# Closer to the server's open-weight model: Groq, OPENAI_BASE_URL="https://api.groq.com/openai/v1",
+# OPENAI_MODEL="openai/gpt-oss-120b" (free tier caps requests at 8k tokens/min, which can fail T01).
 
 .\.venv-harness\Scripts\python.exe -m harness                      # all tasks → results.json
 .\.venv-harness\Scripts\python.exe -m harness --only T02,T05       # a subset
@@ -116,8 +118,9 @@ A policy-constrained tool-calling loop that drives AgentSwitch MCP via any OpenA
 | [`agent.py`](agent/src/stock_agent/agent.py) | Main ReAct-style loop (`Agent.run`), env config (`AGENTSWITCH_*` / `OPENAI_*`), `AgentResult` dataclass. |
 | [`llm_client.py`](agent/src/stock_agent/llm_client.py) | OpenAI-compatible `chat.completions` client with tool calling. |
 | [`mcp_client.py`](agent/src/stock_agent/mcp_client.py) | JSON-RPC 2.0 client for AgentSwitch `/api/mcp` (protocol `2025-11-25`). |
-| [`tools.py`](agent/src/stock_agent/tools.py) | Seat policy filter, inventory trim, OpenAI tool format + name mapping, synthetic `escalation.draft`. |
-| [`system_prompt.md`](agent/src/stock_agent/system_prompt.md) | Seat identity, read-before-write rule, `REFUSE:` contract, no-invention rule. |
+| [`tools.py`](agent/src/stock_agent/tools.py) | Seat policy filter, inventory trim, slimmed OpenAI tool schemas + name mapping, list-result field projection, hidden arguments (`StockEntry.date`), synthetic `escalation.draft` (fixed `entity` list). |
+| [`balance.py`](agent/src/stock_agent/balance.py) | Synthetic read-only `stock.balance` tool over `endpoint.inventory.stock_balance`: on-hand and free stock per item/warehouse in one call. |
+| [`system_prompt.md`](agent/src/stock_agent/system_prompt.md) | Seat identity, token economy, `stock.balance` usage, read-before-write, escalate-vs-refuse rules (with purchase-order example), `REFUSE:` contract, brief answers. |
 | [`trace.py`](agent/src/stock_agent/trace.py) | Per-run JSONL trace + `meta.json`, flushed on every event. |
 | [`run.py`](agent/src/stock_agent/run.py) | Typer CLI: `ping`, `list-tools`, `run`. |
 
